@@ -1,21 +1,42 @@
-/*! webview-tuner v0.2.0 - layout forensics + live nudging for uninspectable
- * wallet/in-app webviews. Long-press (or right-click) an element, nudge it by
- * pixels with the floating pad, copy a report your AI assistant can act on.
- * Multi-select supported. MIT. https://github.com/4oko4ow/webview-tuner */
+/*! webview-tuner v0.4.0 - layout forensics + live nudging for uninspectable
+ * wallet/in-app webviews. Inspect mode: tap to select, walk the DOM tree to
+ * grab a whole block, nudge with axis lock and edge snapping, copy a report
+ * your AI assistant can act on. MIT. https://github.com/4oko4ow/webview-tuner */
 (function () {
   'use strict'
-  if (window.__wvtuner) return
+  // Single-instance guard MUST be set before any DOM work: hosts can include the
+  // script twice (framework <Script> + a manual tag), and two instances mean two
+  // launchers with separate selection state - taps land on one, reads hit the
+  // other. The debug API is attached to window.__wvtuner later.
+  if (window.__wvtunerLoaded) return
   var script = document.currentScript
   var auto = script && script.hasAttribute('data-auto')
   if (!auto && !/[?&]wvtune=1/.test(location.search)) return
-  window.__wvtuner = true
+  window.__wvtunerLoaded = true
 
   var GREEN = '#36d399'
   var GREY = '#99a2b2'
+  var GUIDE = '#ff5cf4'
+  var SNAP_PX = 8
   // multi-select: every picked element carries its own offsets so the report
   // stays per-element even when they are nudged together
   var sel = [] // { el, ox, oy, ow, baseW, ring }
   var x8 = false
+  var axis = 'free' // 'free' | 'x' | 'y' - lock nudging to one direction
+  var snap = true // snap edges/centers to siblings and the parent
+  // Prefs survive reloads: on a phone you reload constantly, and re-setting the
+  // axis lock / pad position every time is the kind of friction that makes a
+  // tool go unused.
+  var PREF_KEY = 'wvtuner.prefs'
+  var prefs = {}
+  try { prefs = JSON.parse(localStorage.getItem(PREF_KEY) || '{}') } catch (e) { prefs = {} }
+  if (prefs.axis) axis = prefs.axis
+  if (typeof prefs.snap === 'boolean') snap = prefs.snap
+  function savePrefs() {
+    try {
+      localStorage.setItem(PREF_KEY, JSON.stringify({ axis: axis, snap: snap, padX: prefs.padX, padY: prefs.padY, collapsed: prefs.collapsed }))
+    } catch (e) {}
+  }
 
   // --- probes ---------------------------------------------------------------
   var probe = document.createElement('div')
@@ -52,6 +73,7 @@
       'vv ' + Math.round(visualViewport ? visualViewport.height : 0) + '  dvh ' + px('100dvh') + '  svh ' + px('100svh') + '  lvh ' + px('100lvh'),
       'safe-b ' + px('env(safe-area-inset-bottom)') + '  hscroll ' + (hOver > 0 ? '+' + hOver + 'px !' : 'none'),
     ]
+    if (sel.length) lines.push('axis ' + axis + '  snap ' + (snap ? 'on' : 'off') + '  step ' + (x8 ? 8 : 1) + 'px')
     sel.forEach(function (s, i) {
       var r = s.el.getBoundingClientRect()
       lines.push('sel[' + i + '] ' + selectorPath(s.el))
@@ -80,11 +102,86 @@
     s.baseW = null
   }
 
+  // --- snapping ----------------------------------------------------------------
+  // Figma-style alignment: after a nudge, if an edge or center lands within
+  // SNAP_PX of a sibling's (or the parent's) matching edge/center, close the gap
+  // exactly and flash a guide. Pixel-nudging alone always ends up one px off -
+  // this is what keeps a hand-tuned layout actually symmetrical.
+  var guideV = document.createElement('div')
+  var guideH = document.createElement('div')
+  guideV.style.cssText = 'position:fixed;top:0;bottom:0;width:1px;background:' + GUIDE + ';z-index:2147483644;pointer-events:none;display:none'
+  guideH.style.cssText = 'position:fixed;left:0;right:0;height:1px;background:' + GUIDE + ';z-index:2147483644;pointer-events:none;display:none'
+  var guideTimer = null
+
+  function flashGuide(el, pos) {
+    el.style.display = 'block'
+    if (el === guideV) el.style.left = pos + 'px'
+    else el.style.top = pos + 'px'
+    clearTimeout(guideTimer)
+    guideTimer = setTimeout(function () {
+      guideV.style.display = 'none'
+      guideH.style.display = 'none'
+    }, 700)
+  }
+
+  function alignTargets(el) {
+    var xs = []
+    var ys = []
+    var push = function (r) {
+      xs.push(r.left, r.right, r.left + r.width / 2)
+      ys.push(r.top, r.bottom, r.top + r.height / 2)
+    }
+    var parent = el.parentElement
+    if (parent && parent !== document.body) push(parent.getBoundingClientRect())
+    if (parent) {
+      Array.prototype.forEach.call(parent.children, function (c) {
+        if (c !== el && !panel.contains(c) && !pad.contains(c) && c !== launcher) push(c.getBoundingClientRect())
+      })
+    }
+    return { xs: xs, ys: ys }
+  }
+
+  function nearest(mine, targets) {
+    var best = null
+    mine.forEach(function (m) {
+      targets.forEach(function (v) {
+        var d = v - m
+        if (Math.abs(d) <= SNAP_PX && (!best || Math.abs(d) < Math.abs(best.d))) best = { d: d, at: v }
+      })
+    })
+    return best
+  }
+
+  function snapAdjust(s) {
+    if (!snap) return
+    var t = alignTargets(s.el)
+    var r = s.el.getBoundingClientRect()
+    if (axis !== 'y') {
+      var bx = nearest([r.left, r.right, r.left + r.width / 2], t.xs)
+      if (bx) {
+        s.ox += Math.round(bx.d)
+        apply(s)
+        flashGuide(guideV, bx.at)
+      }
+    }
+    if (axis !== 'x') {
+      var r2 = s.el.getBoundingClientRect()
+      var by = nearest([r2.top, r2.bottom, r2.top + r2.height / 2], t.ys)
+      if (by) {
+        s.oy += Math.round(by.d)
+        apply(s)
+        flashGuide(guideH, by.at)
+      }
+    }
+  }
+
   // --- ui ---------------------------------------------------------------------
+  // 44px minimum touch targets - the first version's 11px chips were unusable
+  // one-handed on a phone.
   function btn(label, onTap, wide) {
     var b = document.createElement('button')
     b.textContent = label
-    b.style.cssText = 'font:600 13px ui-monospace,monospace;color:' + GREEN + ';background:transparent;border:1px solid ' + GREEN + ';border-radius:6px;padding:' + (wide ? '6px 12px' : '6px 10px') + ';cursor:pointer;touch-action:manipulation'
+    b.style.cssText = 'min-width:' + (wide ? 64 : 44) + 'px;min-height:44px;font:700 15px ui-monospace,monospace;color:' + GREEN + ';background:rgba(255,255,255,0.04);border:1px solid ' + GREEN + ';border-radius:10px;padding:0 8px;cursor:pointer;touch-action:manipulation'
     b.addEventListener('click', function (e) {
       e.stopPropagation()
       e.preventDefault()
@@ -101,26 +198,11 @@
   }
 
   var panel = document.createElement('div')
-  panel.style.cssText = 'position:fixed;top:64px;left:8px;z-index:2147483646;background:rgba(0,0,0,.85);border-radius:8px;padding:8px 10px;max-width:92vw;font:11px/1.6 ui-monospace,monospace;color:' + GREEN
+  panel.style.cssText = 'position:fixed;top:64px;left:8px;z-index:2147483646;background:rgba(0,0,0,.85);border-radius:10px;padding:8px 10px;max-width:94vw;font:11px/1.6 ui-monospace,monospace;color:' + GREEN
   panel.style.display = 'none'
   var pre = document.createElement('pre')
   pre.style.cssText = 'margin:0;white-space:pre-wrap;color:inherit;font:inherit'
   panel.appendChild(pre)
-  var copyBtn = btn('copy', function (b) {
-    var report = metrics() + '\nurl ' + location.href + '\nua ' + navigator.userAgent
-    var done = function () {
-      b.textContent = 'copied'
-      setTimeout(function () { b.textContent = 'copy' }, 1500)
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(report).then(done, function () { fallbackCopy(report); done() })
-    } else { fallbackCopy(report); done() }
-  })
-  panel.appendChild(row(copyBtn, btn('reset', function () { sel.forEach(clearOverrides) })))
-  var hint = document.createElement('div')
-  hint.textContent = 'tap an element to select, tap again to unselect. arrows move ALL selected. round badge exits.'
-  hint.style.cssText = 'margin-top:5px;color:' + GREY + ';font:10px ui-monospace,monospace;max-width:250px'
-  panel.appendChild(hint)
 
   function fallbackCopy(text) {
     var ta = document.createElement('textarea')
@@ -131,37 +213,149 @@
     ta.remove()
   }
 
+  var copyBtn = btn('copy', function (b) {
+    var report = metrics() + '\nurl ' + location.href + '\nua ' + navigator.userAgent
+    var done = function () {
+      b.textContent = 'copied'
+      setTimeout(function () { b.textContent = 'copy' }, 1500)
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(report).then(done, function () { fallbackCopy(report); done() })
+    } else { fallbackCopy(report); done() }
+  }, true)
+
+  var axisBtn = btn('axis ' + axis, function (b) {
+    axis = axis === 'free' ? 'y' : axis === 'y' ? 'x' : 'free'
+    b.textContent = 'axis ' + axis
+    savePrefs()
+  }, true)
+  var snapBtn = btn(snap ? 'snap on' : 'snap off', function (b) {
+    snap = !snap
+    b.textContent = snap ? 'snap on' : 'snap off'
+    savePrefs()
+  }, true)
+
+  var body = document.createElement('div')
+  body.appendChild(row(copyBtn, btn('reset', function () { sel.forEach(clearOverrides) }, true)))
+  body.appendChild(row(axisBtn, snapBtn))
+  panel.appendChild(body)
+  // Collapse to a one-line bar: on a phone the panel itself covers the elements
+  // you are trying to tune, so hiding it must be one tap away (and remembered).
+  var collapseBtn = btn(prefs.collapsed ? '+' : '-', function (b) {
+    prefs.collapsed = !prefs.collapsed
+    b.textContent = prefs.collapsed ? '+' : '-'
+    body.style.display = prefs.collapsed ? 'none' : 'block'
+    hint.style.display = prefs.collapsed ? 'none' : hint.style.display
+    savePrefs()
+  })
+  collapseBtn.style.position = 'absolute'
+  collapseBtn.style.top = '4px'
+  collapseBtn.style.right = '4px'
+  collapseBtn.style.minWidth = '34px'
+  collapseBtn.style.minHeight = '34px'
+  panel.style.position = 'fixed'
+  panel.style.paddingRight = '44px'
+  panel.appendChild(collapseBtn)
+  if (prefs.collapsed) body.style.display = 'none'
+  var hint = document.createElement('div')
+  hint.textContent = 'tap an element to select. parent/child walk the DOM tree to grab a whole block. arrows move everything selected.'
+  hint.style.cssText = 'margin-top:6px;color:' + GREY + ';font:10px ui-monospace,monospace;max-width:250px'
+  if (prefs.collapsed) hint.style.display = 'none'
+  panel.appendChild(hint)
+
   // floating nudge pad - appears next to the selection
   var pad = document.createElement('div')
-  pad.style.cssText = 'position:fixed;z-index:2147483646;background:rgba(0,0,0,.85);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px;display:none;width:170px'
+  pad.style.cssText = 'position:fixed;z-index:2147483646;background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px;display:none;width:190px'
   var step = function () { return x8 ? 8 : 1 }
   var nudge = function (dx, dy, dw) {
     return function () {
       sel.forEach(function (s) {
-        s.ox += dx * step()
-        s.oy += dy * step()
+        var lockedX = axis === 'y' && dx
+        var lockedY = axis === 'x' && dy
+        if (!lockedX && !lockedY) {
+          s.ox += dx * step()
+          s.oy += dy * step()
+        }
         s.ow += dw * step()
         apply(s)
+        if ((dx || dy) && !lockedX && !lockedY) snapAdjust(s)
       })
     }
   }
   var x8btn = btn('x8', function (b) {
     x8 = !x8
-    b.style.background = x8 ? GREEN : 'transparent'
+    b.style.background = x8 ? GREEN : 'rgba(255,255,255,0.04)'
     b.style.color = x8 ? '#000' : GREEN
   })
-  pad.appendChild(row(btn('↑', nudge(0, -1, 0), true), x8btn))
-  pad.appendChild(row(btn('←', nudge(-1, 0, 0), true), btn('↓', nudge(0, 1, 0), true), btn('→', nudge(1, 0, 0), true)))
-  pad.appendChild(row(btn('w-', nudge(0, 0, -1)), btn('w+', nudge(0, 0, 1)), btn('✕', function () { clearSelection() })))
 
   function clearSelection() {
     sel.forEach(function (s) { s.ring.remove() })
     sel = []
   }
 
+  function addToSelection(el) {
+    var ring = document.createElement('div')
+    ring.style.cssText = 'position:fixed;z-index:2147483645;border:1px dashed ' + GREEN + ';pointer-events:none;border-radius:4px'
+    document.body.appendChild(ring)
+    sel.push({ el: el, ox: 0, oy: 0, ow: 0, baseW: null, ring: ring })
+    hint.style.display = 'none'
+  }
+
+  // Walk the DOM instead of hunting tiny targets: tap whatever you CAN hit,
+  // then step up to the block you actually want to move (nudging a row element
+  // by element is the thing this replaces). Overrides reset on the way.
+  function walk(up) {
+    if (sel.length !== 1) return
+    var cur = sel[0].el
+    var next = up
+      ? cur.parentElement
+      : Array.prototype.filter.call(cur.children, function (c) {
+          return c !== panel && c !== pad && c !== launcher && c.getBoundingClientRect().width > 0
+        })[0]
+    if (!next || next === document.body || next === document.documentElement) return
+    if (panel.contains(next) || pad.contains(next) || next === launcher) return
+    clearOverrides(sel[0])
+    clearSelection()
+    addToSelection(next)
+  }
+
+  // Drag handle: the auto-placed pad inevitably lands over the thing you are
+  // tuning on a small screen, so let it be parked anywhere - and remember where.
+  var grip = document.createElement('div')
+  grip.textContent = '\u2022 \u2022 \u2022'
+  grip.style.cssText = 'height:26px;display:flex;align-items:center;justify-content:center;color:' + GREY + ';font:12px ui-monospace,monospace;letter-spacing:2px;cursor:grab;touch-action:none;user-select:none'
+  var dragging = null
+  grip.addEventListener('pointerdown', function (e) {
+    e.stopPropagation()
+    e.preventDefault()
+    var r = pad.getBoundingClientRect()
+    dragging = { dx: e.clientX - r.left, dy: e.clientY - r.top }
+    grip.setPointerCapture(e.pointerId)
+  })
+  grip.addEventListener('pointermove', function (e) {
+    if (!dragging) return
+    e.stopPropagation()
+    var x = Math.min(Math.max(4, e.clientX - dragging.dx), innerWidth - pad.offsetWidth - 4)
+    var y = Math.min(Math.max(4, e.clientY - dragging.dy), innerHeight - pad.offsetHeight - 4)
+    pad.style.left = x + 'px'
+    pad.style.top = y + 'px'
+    prefs.padX = x
+    prefs.padY = y
+  })
+  grip.addEventListener('pointerup', function (e) {
+    e.stopPropagation()
+    dragging = null
+    savePrefs()
+  })
+  pad.appendChild(grip)
+  pad.appendChild(row(btn('↑', nudge(0, -1, 0)), x8btn, btn('✕', function () { clearSelection() })))
+  pad.appendChild(row(btn('←', nudge(-1, 0, 0)), btn('↓', nudge(0, 1, 0)), btn('→', nudge(1, 0, 0))))
+  pad.appendChild(row(btn('w-', nudge(0, 0, -1)), btn('w+', nudge(0, 0, 1))))
+  pad.appendChild(row(btn('parent', function () { walk(true) }, true), btn('child', function () { walk(false) }, true)))
+
   function toggle(el) {
     if (!el || el === document.body || el === document.documentElement) return
-    if (panel.contains(el) || pad.contains(el)) return
+    if (panel.contains(el) || pad.contains(el) || el === launcher || launcher.contains(el)) return
     for (var i = 0; i < sel.length; i++) {
       // ancestry match too: floating/animated elements shift a few px between
       // taps, so the second tap can land on a wrapper of the selected node
@@ -172,11 +366,7 @@
         return
       }
     }
-    var ring = document.createElement('div')
-    ring.style.cssText = 'position:fixed;z-index:2147483645;border:1px dashed ' + GREEN + ';pointer-events:none;border-radius:4px'
-    document.body.appendChild(ring)
-    sel.push({ el: el, ox: 0, oy: 0, ow: 0, baseW: null, ring: ring })
-    hint.style.display = 'none'
+    addToSelection(el)
   }
 
   // --- inspect mode -------------------------------------------------------
@@ -190,7 +380,7 @@
   // inline svg crosshair - text glyphs sit off-baseline in random webview fonts
   launcher.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/></svg>'
   launcher.setAttribute('aria-label', 'webview-tuner')
-  launcher.style.cssText = 'position:fixed;bottom:86px;right:10px;z-index:2147483647;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid ' + GREEN + ';background:rgba(0,0,0,.85);color:' + GREEN + ';font:20px/1 ui-monospace,monospace;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center'
+  launcher.style.cssText = 'position:fixed;bottom:86px;right:10px;z-index:2147483647;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid ' + GREEN + ';background:rgba(0,0,0,.85);color:' + GREEN + ';cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center'
   launcher.addEventListener('click', function (e) {
     e.stopPropagation()
     e.preventDefault()
@@ -223,7 +413,14 @@
     if (!sel.length) return
     var st = e.shiftKey ? 8 : 1
     var move = function (dx, dy) {
-      sel.forEach(function (s) { s.ox += dx * st; s.oy += dy * st; apply(s) })
+      if (axis === 'y' && dx) return
+      if (axis === 'x' && dy) return
+      sel.forEach(function (s) {
+        s.ox += dx * st
+        s.oy += dy * st
+        apply(s)
+        snapAdjust(s)
+      })
       e.preventDefault()
     }
     if (e.key === 'ArrowLeft') move(-1, 0)
@@ -234,9 +431,9 @@
 
   // --- loop --------------------------------------------------------------------
   function tick() {
-    // the on-screen panel stays one line tall - a grown panel covers the very
+    // the on-screen panel stays compact - a grown panel covers the very
     // elements being tuned (full metrics travel via the copy report)
-    pre.textContent = 'dvh ' + px('100dvh') + ' \u00b7 ' + sel.length + ' selected'
+    pre.textContent = 'dvh ' + px('100dvh') + ' · ' + sel.length + ' selected' + (axis === 'free' ? '' : ' · axis ' + axis)
     if (sel.length) {
       var minL = Infinity, minT = Infinity, maxR = -Infinity, maxB = -Infinity
       sel.forEach(function (s) {
@@ -251,14 +448,20 @@
         if (r.bottom > maxB) maxB = r.bottom
       })
       pad.style.display = 'block'
-      var pw = pad.offsetWidth || 170
-      var ph = pad.offsetHeight || 130
+      if (prefs.padX != null && prefs.padY != null) {
+        // parked by hand - never move it back under the user's finger
+        pad.style.left = Math.min(prefs.padX, innerWidth - pad.offsetWidth - 4) + 'px'
+        pad.style.top = Math.min(prefs.padY, innerHeight - pad.offsetHeight - 4) + 'px'
+        return
+      }
+      var pw = pad.offsetWidth || 190
+      var ph = pad.offsetHeight || 210
       var left = Math.min(Math.max(8, maxR + 10), innerWidth - pw - 8)
       var top = Math.min(Math.max(8, minT), innerHeight - ph - 8)
       // if the pad would cover the selection, drop it below
       if (left < maxR + 10 && top < maxB && top + ph > minT) top = Math.min(maxB + 10, innerHeight - ph - 8)
-      // float/breathe animations jiggle the bbox every tick - only follow
-      // real moves so the pad stays tappable
+      // float/breathe animations jiggle the bbox every tick - only follow real
+      // moves so the pad stays tappable
       var curL = parseFloat(pad.style.left) || 0
       var curT = parseFloat(pad.style.top) || 0
       if (Math.abs(curL - left) > 24 || Math.abs(curT - top) > 24) {
@@ -270,11 +473,22 @@
     }
   }
 
+  // Debug surface: the panel is deliberately compact, so automated checks (and
+  // an agent verifying its own fix) read the live selection from here instead of
+  // scraping rings out of the DOM. Also the re-entry guard.
+  window.__wvtuner = {
+    selection: function () { return sel.map(function (s) { return { path: selectorPath(s.el), dx: s.ox, dy: s.oy, dw: s.ow } }) },
+    state: function () { return { inspecting: inspecting, axis: axis, snap: snap, step: x8 ? 8 : 1 } },
+    report: function () { return metrics() },
+  }
+
   function mount() {
     document.body.appendChild(probe)
     document.body.appendChild(launcher)
     document.body.appendChild(panel)
     document.body.appendChild(pad)
+    document.body.appendChild(guideV)
+    document.body.appendChild(guideH)
     tick()
     setInterval(tick, 400)
   }

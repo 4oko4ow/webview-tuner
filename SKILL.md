@@ -38,6 +38,11 @@ Tell them, in one short message:
    Tap more elements to select several - arrows move ALL of them together.
    Tap a selected element again to unselect, `✕` clears everything.
    Arrows move by 1px (`x8` toggles 8px), `w-`/`w+` resize.
+   `parent` / `child` walk the DOM tree - tell them to tap any easy target and
+   step UP to the block they mean, rather than fighting a tiny element.
+   `axis free/y/x` locks the direction; `snap on` snaps edges and centers to
+   siblings within 8px (guide line flashes). The pad drags by its dotted grip
+   and the panel collapses via `-` - both remembered across reloads.
 4. Tap `copy` in the top panel, paste the text back into the chat, tap the
    badge again to give the page back its clicks.
 
@@ -53,6 +58,8 @@ vv 746  dvh 746  svh 746  lvh 746  <- how CSS viewport units actually resolve
                                       HERE. dvh != your DevTools emulation.
 safe-b 0  hscroll none             <- safe-area-inset-bottom in px; hscroll
                                       +Npx means horizontal overflow exists
+axis y  snap on  step 8px          <- the modes that produced the offsets below
+                                      (axis y means dx was locked at 0)
 sel[0] div.stage > button.cta      <- CSS-ish path to a picked element (one
   box 384x64 @ 28,562                 block per selected element)
   OVERRIDE dx 0 dy -14 dw 16       <- what the user chose: move 14px UP and
