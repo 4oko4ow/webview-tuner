@@ -4,8 +4,14 @@
 
 ## Agent install (fastest path)
 
-Nobody wires debug tooling by hand anymore - paste this to your coding agent
-(Claude Code, Cursor, Codex, whatever you run):
+The one-command way:
+
+```bash
+npx skills add 4oko4ow/webview-tuner
+```
+
+Or paste this to your coding agent (Claude Code, Cursor, Codex, whatever you
+run) and let it do everything:
 
 ```text
 Set up webview-tuner from https://github.com/4oko4ow/webview-tuner:
@@ -106,14 +112,21 @@ full loop - wire the script into your project, tell the user what to do on the
 device, and turn a pasted report into a real CSS fix (formula-level, not magic
 constants). It works with any agent that can read a file.
 
-**Claude Code** - loads it natively as a skill:
+**One command, any agent** (via [skills.sh](https://skills.sh) - Claude Code,
+Codex, Cursor, Copilot, Amp and more):
 
 ```bash
-git clone https://github.com/4oko4ow/webview-tuner ~/.claude/skills/webview-tuner
+npx skills add 4oko4ow/webview-tuner
 ```
 
 Then just say "the page looks broken in the wallet browser" or paste a tuner
 report in any project - the skill picks it up.
+
+**Manual, Claude Code:**
+
+```bash
+git clone https://github.com/4oko4ow/webview-tuner ~/.claude/skills/webview-tuner
+```
 
 **Cursor** - add it as a project rule:
 
@@ -133,6 +146,13 @@ echo "When debugging webview layouts, follow docs/webview-tuner-skill.md" >> AGE
 **Anything else (ChatGPT, a raw API agent, your own harness)** - paste the
 contents of `SKILL.md` into the system context together with the user's
 report. The report format is stable and documented there.
+
+## Before you trust it
+
+As with any skill: read what you install. This one is a single ~8 KB file you
+can audit in five minutes. It makes no network calls, stores nothing, and does
+nothing at all unless the URL contains `?wvtune=1`. The clipboard report is
+assembled locally and goes only where you paste it.
 
 ## License
 
