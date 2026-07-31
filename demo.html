@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>webview-tuner demo</title>
+  <style>
+    body { margin: 0; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; background: #0b0c10; color: #eef1f6; font-family: system-ui, sans-serif; }
+    .hero { width: min(240px, 56vw); aspect-ratio: 3/4.2; background: linear-gradient(140deg, #14171f, #23283a); border-radius: 18px; margin-top: 48px; }
+    h1 { font-size: 22px; margin: 24px 0 6px; }
+    p { color: #99a2b2; margin: 0 0 24px; }
+    .cta { background: #36d399; color: #06120c; border: 0; border-radius: 12px; padding: 16px 48px; font-weight: 700; font-size: 16px; }
+    nav { position: fixed; bottom: 0; left: 0; right: 0; height: 64px; background: #14171f; display: flex; align-items: center; justify-content: center; color: #646e7e; }
+  </style>
+</head>
+<body>
+  <div class="hero"></div>
+  <h1>Some product</h1>
+  <p>looks different in every webview</p>
+  <button class="cta">Buy</button>
+  <nav>tab bar</nav>
+  <script src="webview-tuner.js" data-auto></script>
+</body>
+</html>
