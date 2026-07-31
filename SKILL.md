@@ -60,7 +60,9 @@ Tell them, in one short message:
    inert, plain taps now SELECT elements (dashed ring + floating arrow pad).
    Tap more elements to select several - arrows move ALL of them together.
    Tap a selected element again to unselect, `✕` clears everything.
-   Arrows move by 1px (`x8` toggles 8px), `w-`/`w+` resize.
+   To move something, DRAG it - it follows the finger and snaps to neighbours.
+   Arrows are precision: exactly 1px (`x8` toggles 8px), no snapping, `w-`/`w+`
+   resize.
    `parent` / `child` walk the DOM tree - tell them to tap any easy target and
    step UP to the block they mean, rather than fighting a tiny element.
    `axis free/y/x` locks the direction; `snap on` snaps edges and centers to

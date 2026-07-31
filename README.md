@@ -57,20 +57,23 @@ Add one script. Open your page inside the actual webview with `?wvtune=1`.
   inert and plain taps select elements (dashed ring + floating arrow pad
   next to the selection). Tap several elements to move them together -
   nudging a CTA never activates it.
+- **Drag to move**: press an element and drag - it follows your finger and
+  snaps to its neighbours on the way. This is the main gesture; tapping selects.
 - **Walk the DOM**: `parent` / `child` step up and down the tree, so you tap
   whatever you can hit and then grab the whole block you actually want to move
   instead of hunting a 12px target.
-- **Nudge live**: pad arrows move the selection by the pixel (`x8` for 8px
-  steps, hardware arrows + Shift too), width steppers resize. Overrides use
-  the CSS `translate` property, so they compose with existing transform
-  animations instead of clobbering them.
+- **Arrows for precision**: pad arrows move by exactly 1px (`x8` for 8px,
+  hardware arrows + Shift too) with snapping off, so a nudge is never pulled
+  back. Width steppers resize. Overrides use the CSS `translate` property, so
+  they compose with existing transform animations instead of clobbering them.
 - **Axis lock**: `axis free / y / x` - lock movement to one direction so a
   vertical tune never drifts sideways.
 - **Snapping**: edges and centers snap to siblings and the parent within 8px,
   with a guide line - hand-nudged layouts come out symmetrical, not one px off.
 - **Built for a phone**: 44px touch targets, the pad drags anywhere by its
-  grip, the panel collapses to one line, and axis/snap/pad position/collapsed
-  persist across reloads (localStorage).
+  grip, the panel starts collapsed and never blocks the page (its shell is
+  transparent to taps - only the buttons take them), and axis/snap/pad
+  position/collapsed persist across reloads (localStorage).
 - **Copy for AI**: one button copies a text report - metrics, a CSS selector
   path for the element, its box, the offsets you chose, URL and user agent.
   Paste it to Claude (or any assistant working on your code) and it knows

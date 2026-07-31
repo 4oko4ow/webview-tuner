@@ -1,7 +1,8 @@
-/*! webview-tuner v0.4.0 - layout forensics + live nudging for uninspectable
- * wallet/in-app webviews. Inspect mode: tap to select, walk the DOM tree to
- * grab a whole block, nudge with axis lock and edge snapping, copy a report
- * your AI assistant can act on. MIT. https://github.com/4oko4ow/webview-tuner */
+/*! webview-tuner v0.5.0 - layout forensics + live nudging for uninspectable
+ * wallet/in-app webviews. Inspect mode: DRAG an element to move it (snaps to
+ * neighbours), tap to select, walk the DOM tree to grab a whole block, arrows
+ * for exact pixels, copy a report your AI assistant can act on.
+ * MIT. https://github.com/4oko4ow/webview-tuner */
 (function () {
   'use strict'
   // Single-instance guard MUST be set before any DOM work: hosts can include the
@@ -181,7 +182,7 @@
   function btn(label, onTap, wide) {
     var b = document.createElement('button')
     b.textContent = label
-    b.style.cssText = 'min-width:' + (wide ? 64 : 44) + 'px;min-height:44px;font:700 15px ui-monospace,monospace;color:' + GREEN + ';background:rgba(255,255,255,0.04);border:1px solid ' + GREEN + ';border-radius:10px;padding:0 8px;cursor:pointer;touch-action:manipulation'
+    b.style.cssText = 'min-width:' + (wide ? 64 : 44) + 'px;min-height:44px;font:700 15px ui-monospace,monospace;color:' + GREEN + ';background:rgba(255,255,255,0.04);border:1px solid ' + GREEN + ';border-radius:10px;padding:0 8px;cursor:pointer;touch-action:manipulation;pointer-events:auto'
     b.addEventListener('click', function (e) {
       e.stopPropagation()
       e.preventDefault()
@@ -198,7 +199,10 @@
   }
 
   var panel = document.createElement('div')
-  panel.style.cssText = 'position:fixed;top:64px;left:8px;z-index:2147483646;background:rgba(0,0,0,.85);border-radius:10px;padding:8px 10px;max-width:94vw;font:11px/1.6 ui-monospace,monospace;color:' + GREEN
+  // pointer-events none on the shell: the panel must never eat a tap meant for
+  // the page underneath (with 44px buttons it covers real content). Only its
+  // buttons opt back in, so the tool is visible without being in the way.
+  panel.style.cssText = 'position:fixed;top:64px;left:8px;z-index:2147483646;background:rgba(0,0,0,.85);border-radius:10px;padding:8px 10px;max-width:min(300px,86vw);font:11px/1.6 ui-monospace,monospace;pointer-events:none;color:' + GREEN
   panel.style.display = 'none'
   var pre = document.createElement('pre')
   pre.style.cssText = 'margin:0;white-space:pre-wrap;color:inherit;font:inherit'
@@ -227,13 +231,22 @@
   var axisBtn = btn('axis ' + axis, function (b) {
     axis = axis === 'free' ? 'y' : axis === 'y' ? 'x' : 'free'
     b.textContent = 'axis ' + axis
+    b.style.background = axis === 'free' ? 'rgba(255,255,255,0.04)' : GREEN
+    b.style.color = axis === 'free' ? GREEN : '#000'
     savePrefs()
   }, true)
+  axisBtn.style.background = axis === 'free' ? 'rgba(255,255,255,0.04)' : GREEN
+  axisBtn.style.color = axis === 'free' ? GREEN : '#000'
   var snapBtn = btn(snap ? 'snap on' : 'snap off', function (b) {
     snap = !snap
     b.textContent = snap ? 'snap on' : 'snap off'
+    // fill it when active: a label-only toggle read as "not working" on device
+    b.style.background = snap ? GREEN : 'rgba(255,255,255,0.04)'
+    b.style.color = snap ? '#000' : GREEN
     savePrefs()
   }, true)
+  snapBtn.style.background = snap ? GREEN : 'rgba(255,255,255,0.04)'
+  snapBtn.style.color = snap ? '#000' : GREEN
 
   var body = document.createElement('div')
   body.appendChild(row(copyBtn, btn('reset', function () { sel.forEach(clearOverrides) }, true)))
@@ -241,6 +254,7 @@
   panel.appendChild(body)
   // Collapse to a one-line bar: on a phone the panel itself covers the elements
   // you are trying to tune, so hiding it must be one tap away (and remembered).
+  if (prefs.collapsed == null) prefs.collapsed = true // out of the way by default
   var collapseBtn = btn(prefs.collapsed ? '+' : '-', function (b) {
     prefs.collapsed = !prefs.collapsed
     b.textContent = prefs.collapsed ? '+' : '-'
@@ -258,15 +272,18 @@
   panel.appendChild(collapseBtn)
   if (prefs.collapsed) body.style.display = 'none'
   var hint = document.createElement('div')
-  hint.textContent = 'tap an element to select. parent/child walk the DOM tree to grab a whole block. arrows move everything selected.'
+  hint.textContent = 'drag an element to move it (snaps to neighbours). tap to select, tap again to release. parent/child grab the whole block. arrows = exact pixels, no snap.'
   hint.style.cssText = 'margin-top:6px;color:' + GREY + ';font:10px ui-monospace,monospace;max-width:250px'
   if (prefs.collapsed) hint.style.display = 'none'
   panel.appendChild(hint)
 
   // floating nudge pad - appears next to the selection
   var pad = document.createElement('div')
-  pad.style.cssText = 'position:fixed;z-index:2147483646;background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px;display:none;width:190px'
+  pad.style.cssText = 'position:fixed;z-index:2147483646;background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:8px;display:none;width:190px;pointer-events:none'
   var step = function () { return x8 ? 8 : 1 }
+  // Arrows are PRECISION: no snapping. With an 8px snap radius a 1px nudge was
+  // immediately pulled back to the nearest edge, so the element looked stuck -
+  // snapping belongs to dragging (below), exactly like a design tool.
   var nudge = function (dx, dy, dw) {
     return function () {
       sel.forEach(function (s) {
@@ -278,7 +295,6 @@
         }
         s.ow += dw * step()
         apply(s)
-        if ((dx || dy) && !lockedX && !lockedY) snapAdjust(s)
       })
     }
   }
@@ -323,7 +339,7 @@
   // tuning on a small screen, so let it be parked anywhere - and remember where.
   var grip = document.createElement('div')
   grip.textContent = '\u2022 \u2022 \u2022'
-  grip.style.cssText = 'height:26px;display:flex;align-items:center;justify-content:center;color:' + GREY + ';font:12px ui-monospace,monospace;letter-spacing:2px;cursor:grab;touch-action:none;user-select:none'
+  grip.style.cssText = 'height:26px;display:flex;align-items:center;justify-content:center;color:' + GREY + ';font:12px ui-monospace,monospace;letter-spacing:2px;cursor:grab;touch-action:none;user-select:none;pointer-events:auto'
   var dragging = null
   grip.addEventListener('pointerdown', function (e) {
     e.stopPropagation()
@@ -388,24 +404,72 @@
     launcher.style.background = inspecting ? GREEN : 'rgba(0,0,0,.85)'
     launcher.style.color = inspecting ? '#000' : GREEN
     panel.style.display = inspecting ? 'block' : 'none'
+    // a drag must move the element, not scroll the page under it
+    document.documentElement.style.touchAction = inspecting ? 'none' : ''
     if (!inspecting) clearSelection()
   })
 
-  var tapStart = null
-  ;['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'].forEach(function (type) {
+  // Gestures in inspect mode: DRAG moves things (the natural way to place an
+  // element, snapping as you go), a TAP without movement selects/unselects.
+  // Everything is swallowed at capture so the page underneath never reacts.
+  var press = null
+  var DRAG_START_PX = 5
+
+  function ours(t) {
+    return launcher.contains(t) || panel.contains(t) || pad.contains(t)
+  }
+
+  document.addEventListener('pointerdown', function (e) {
+    if (!inspecting || ours(e.target)) return
+    e.preventDefault()
+    e.stopPropagation()
+    press = { x: e.clientX, y: e.clientY, target: e.target, dragging: false, base: null }
+  }, true)
+
+  document.addEventListener('pointermove', function (e) {
+    if (!inspecting || !press) return
+    e.preventDefault()
+    e.stopPropagation()
+    var dx = e.clientX - press.x
+    var dy = e.clientY - press.y
+    if (!press.dragging && Math.abs(dx) < DRAG_START_PX && Math.abs(dy) < DRAG_START_PX) return
+    if (!press.dragging) {
+      press.dragging = true
+      // drag whatever is selected; if the press landed outside the selection,
+      // select that element first so a drag always moves something visible
+      var inSel = sel.some(function (s) { return s.el === press.target || s.el.contains(press.target) })
+      if (!inSel) {
+        clearSelection()
+        addToSelection(press.target)
+      }
+      press.base = sel.map(function (s) { return { ox: s.ox, oy: s.oy } })
+    }
+    sel.forEach(function (s, i) {
+      var b = press.base[i] || { ox: 0, oy: 0 }
+      if (axis !== 'y') s.ox = b.ox + Math.round(dx)
+      if (axis !== 'x') s.oy = b.oy + Math.round(dy)
+      apply(s)
+    })
+    // snap the leader; the rest keep their relative offsets
+    if (sel.length) snapAdjust(sel[0])
+  }, true)
+
+  document.addEventListener('pointerup', function (e) {
+    if (!inspecting || !press) return
+    e.preventDefault()
+    e.stopPropagation()
+    if (!press.dragging) toggle(press.target)
+    else savePrefs()
+    press = null
+  }, true)
+
+  // the page must not react to the swallowed gesture in any form
+  ;['mousedown', 'mouseup', 'click', 'pointercancel'].forEach(function (type) {
     document.addEventListener(type, function (e) {
-      if (!inspecting) return
-      if (launcher.contains(e.target) || panel.contains(e.target) || pad.contains(e.target)) return
+      if (!inspecting || ours(e.target)) return
       e.preventDefault()
       e.stopPropagation()
-      if (type === 'pointerdown') tapStart = { x: e.clientX, y: e.clientY, target: e.target }
-      if (type === 'pointerup' && tapStart) {
-        // a tap, not a scroll/drag
-        if (Math.abs(e.clientX - tapStart.x) < 10 && Math.abs(e.clientY - tapStart.y) < 10) {
-          toggle(tapStart.target)
-        }
-        tapStart = null
-      }
+      if (type === 'pointercancel') press = null
     }, true)
   })
 
@@ -419,7 +483,6 @@
         s.ox += dx * st
         s.oy += dy * st
         apply(s)
-        snapAdjust(s)
       })
       e.preventDefault()
     }
@@ -478,7 +541,7 @@
   // scraping rings out of the DOM. Also the re-entry guard.
   window.__wvtuner = {
     selection: function () { return sel.map(function (s) { return { path: selectorPath(s.el), dx: s.ox, dy: s.oy, dw: s.ow } }) },
-    state: function () { return { inspecting: inspecting, axis: axis, snap: snap, step: x8 ? 8 : 1 } },
+    state: function () { return { inspecting: inspecting, axis: axis, snap: snap, step: x8 ? 8 : 1, pressing: !!press, dragging: !!(press && press.dragging) } },
     report: function () { return metrics() },
   }
 
