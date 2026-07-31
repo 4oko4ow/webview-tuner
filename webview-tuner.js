@@ -16,7 +16,6 @@
   // stays per-element even when they are nudged together
   var sel = [] // { el, ox, oy, ow, baseW, ring }
   var x8 = false
-  var suppressClick = false
 
   // --- probes ---------------------------------------------------------------
   var probe = document.createElement('div')
@@ -103,6 +102,7 @@
 
   var panel = document.createElement('div')
   panel.style.cssText = 'position:fixed;top:64px;left:8px;z-index:2147483646;background:rgba(0,0,0,.85);border-radius:8px;padding:8px 10px;max-width:92vw;font:11px/1.6 ui-monospace,monospace;color:' + GREEN
+  panel.style.display = 'none'
   var pre = document.createElement('pre')
   pre.style.cssText = 'margin:0;white-space:pre-wrap;color:inherit;font:inherit'
   panel.appendChild(pre)
@@ -118,7 +118,7 @@
   })
   panel.appendChild(row(copyBtn, btn('reset', function () { sel.forEach(clearOverrides) })))
   var hint = document.createElement('div')
-  hint.textContent = 'long-press (or right-click) an element to select - again to unselect. arrows move ALL selected.'
+  hint.textContent = 'tap an element to select, tap again to unselect. arrows move ALL selected. round badge exits.'
   hint.style.cssText = 'margin-top:5px;color:' + GREY + ';font:10px ui-monospace,monospace;max-width:250px'
   panel.appendChild(hint)
 
@@ -163,7 +163,9 @@
     if (!el || el === document.body || el === document.documentElement) return
     if (panel.contains(el) || pad.contains(el)) return
     for (var i = 0; i < sel.length; i++) {
-      if (sel[i].el === el) {
+      // ancestry match too: floating/animated elements shift a few px between
+      // taps, so the second tap can land on a wrapper of the selected node
+      if (sel[i].el === el || sel[i].el.contains(el) || el.contains(sel[i].el)) {
         clearOverrides(sel[i])
         sel[i].ring.remove()
         sel.splice(i, 1)
@@ -174,75 +176,44 @@
     ring.style.cssText = 'position:fixed;z-index:2147483645;border:1px dashed ' + GREEN + ';pointer-events:none;border-radius:4px'
     document.body.appendChild(ring)
     sel.push({ el: el, ox: 0, oy: 0, ow: 0, baseW: null, ring: ring })
+    hint.style.display = 'none'
   }
 
-  // --- selection: long-press on touch, right-click / alt+click on desktop ----
-  var lpTimer = null
-  var lpStart = null
-  document.addEventListener('touchstart', function (e) {
-    if (e.touches.length !== 1) return
-    var t = e.touches[0]
-    lpStart = { x: t.clientX, y: t.clientY }
-    var target = e.target
-    lpTimer = setTimeout(function () {
-      toggle(target)
-      // kill the page's own press-and-hold on this element (hold-to-open etc.)
-      try { target.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true })) } catch (err) {}
-      // the synthetic click that follows this touch must not click through -
-      // but only that one (expire fast so tuner buttons stay tappable)
-      suppressClick = true
-      setTimeout(function () { suppressClick = false }, 500)
-      lpTimer = null
-    }, 450)
-  }, { passive: true })
-  document.addEventListener('touchmove', function (e) {
-    if (!lpTimer || !lpStart) return
-    var t = e.touches[0]
-    if (Math.abs(t.clientX - lpStart.x) > 10 || Math.abs(t.clientY - lpStart.y) > 10) {
-      clearTimeout(lpTimer)
-      lpTimer = null
-    }
-  }, { passive: true })
-  document.addEventListener('touchend', function () {
-    if (lpTimer) { clearTimeout(lpTimer); lpTimer = null }
-  }, { passive: true })
+  // --- inspect mode -------------------------------------------------------
+  // Explicit and modal, toggled by the floating launcher: OFF = the page works
+  // untouched (zero interception), ON = the page is inert and every tap
+  // selects/unselects the element under the finger. No long-press gymnastics -
+  // pages often act on pointerdown itself, so half-measures misfire.
+  var inspecting = false
 
-  document.addEventListener('contextmenu', function (e) {
-    if (panel.contains(e.target) || pad.contains(e.target)) return
+  var launcher = document.createElement('button')
+  launcher.textContent = '\u2316'
+  launcher.setAttribute('aria-label', 'webview-tuner')
+  launcher.style.cssText = 'position:fixed;bottom:86px;right:10px;z-index:2147483646;width:44px;height:44px;border-radius:50%;border:1px solid ' + GREEN + ';background:rgba(0,0,0,.85);color:' + GREEN + ';font:20px/1 ui-monospace,monospace;cursor:pointer;touch-action:manipulation'
+  launcher.addEventListener('click', function (e) {
+    e.stopPropagation()
     e.preventDefault()
-    toggle(e.target)
+    inspecting = !inspecting
+    launcher.style.background = inspecting ? GREEN : 'rgba(0,0,0,.85)'
+    launcher.style.color = inspecting ? '#000' : GREEN
+    panel.style.display = inspecting ? 'block' : 'none'
+    if (!inspecting) clearSelection()
   })
-  document.addEventListener('click', function (e) {
-    if (e.altKey) {
-      e.preventDefault()
-      e.stopPropagation()
-      toggle(e.target)
-      return
-    }
-    // the tap that ended a long-press must not click through
-    if (suppressClick) {
-      e.preventDefault()
-      e.stopPropagation()
-      suppressClick = false
-      return
-    }
-    // while a selection is active the page is in tuning mode: swallow every
-    // click outside the tuner UI so nudging a CTA never activates it
-    if (sel.length && !panel.contains(e.target) && !pad.contains(e.target)) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-  }, true)
 
-  // clicks are not enough: components often act on pointerdown (press-and-hold
-  // patterns) - swallow the whole pointer sequence while tuning. Right-button
-  // presses are swallowed ALWAYS so right-click select never pokes the page.
-  ;['pointerdown', 'pointerup', 'mousedown', 'mouseup'].forEach(function (type) {
+  var tapStart = null
+  ;['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'].forEach(function (type) {
     document.addEventListener(type, function (e) {
-      if (panel.contains(e.target) || pad.contains(e.target)) return
-      if (e.button === 2 || sel.length) {
-        e.preventDefault()
-        e.stopPropagation()
+      if (!inspecting) return
+      if (launcher.contains(e.target) || panel.contains(e.target) || pad.contains(e.target)) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (type === 'pointerdown') tapStart = { x: e.clientX, y: e.clientY, target: e.target }
+      if (type === 'pointerup' && tapStart) {
+        // a tap, not a scroll/drag
+        if (Math.abs(e.clientX - tapStart.x) < 10 && Math.abs(e.clientY - tapStart.y) < 10) {
+          toggle(tapStart.target)
+        }
+        tapStart = null
       }
     }, true)
   })
@@ -262,7 +233,9 @@
 
   // --- loop --------------------------------------------------------------------
   function tick() {
-    pre.textContent = metrics()
+    // the on-screen panel stays one line tall - a grown panel covers the very
+    // elements being tuned (full metrics travel via the copy report)
+    pre.textContent = 'dvh ' + px('100dvh') + ' \u00b7 ' + sel.length + ' selected'
     if (sel.length) {
       var minL = Infinity, minT = Infinity, maxR = -Infinity, maxB = -Infinity
       sel.forEach(function (s) {
@@ -298,6 +271,7 @@
 
   function mount() {
     document.body.appendChild(probe)
+    document.body.appendChild(launcher)
     document.body.appendChild(panel)
     document.body.appendChild(pad)
     tick()

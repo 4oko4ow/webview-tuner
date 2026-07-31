@@ -22,10 +22,10 @@ Add one script. Open your page inside the actual webview with `?wvtune=1`.
 
 - **Metrics panel**: real viewport size, `dvh` / `svh` / `lvh` as the webview
   resolves them, `safe-area-inset-bottom`, horizontal-overflow detector.
-- **Long-press to select** (right-click on desktop): the element gets a dashed
-  ring and a floating arrow pad appears next to it. Long-press more elements
-  to move several together. While anything is selected, page taps are
-  swallowed - nudging a CTA never activates it.
+- **Inspect mode**: a floating ⌖ badge toggles it. While on, the page is
+  inert and plain taps select elements (dashed ring + floating arrow pad
+  next to the selection). Tap several elements to move them together -
+  nudging a CTA never activates it.
 - **Nudge live**: pad arrows move the selection by the pixel (`x8` for 8px
   steps, hardware arrows + Shift too), width steppers resize. Overrides use
   the CSS `translate` property, so they compose with existing transform
@@ -57,7 +57,7 @@ Or force it on regardless of the query string (for a dev build):
 2. On the device, open the page inside the wallet browser with `?wvtune=1`.
 3. Read the metrics - usually the bug is already visible ("dvh is 850 here,
    not the 660 I designed for").
-4. Long-press the misplaced element -> nudge until it looks right.
+4. Tap the ⌖ badge, tap the misplaced element -> nudge until it looks right.
 5. `copy` -> paste the report into your AI pair programmer -> it turns your
    on-device pixels into the real CSS fix.
 

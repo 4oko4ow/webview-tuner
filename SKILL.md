@@ -33,14 +33,13 @@ Tell them, in one short message:
 1. Open the affected page inside the actual wallet browser / webview with
    `?wvtune=1` appended.
 2. Read nothing - just check the panel appeared (top-left, green mono text).
-3. If an element sits wrong: LONG-PRESS it (right-click on desktop) - a dashed
-   ring appears and a floating arrow pad shows up next to it. Arrows move it
-   (`x8` toggles 8px steps), `w-`/`w+` resize, `✕` clears the selection.
-   Long-press more elements to select several - arrows move ALL of them
-   together (useful when a whole row of divs needs the same shift). While
-   anything is selected, page taps are swallowed - buttons under your finger
-   will not fire.
-4. Tap `copy` in the top panel and paste the text back into the chat.
+3. Tap the round ⌖ badge (bottom-right) - inspect mode ON: the page goes
+   inert, plain taps now SELECT elements (dashed ring + floating arrow pad).
+   Tap more elements to select several - arrows move ALL of them together.
+   Tap a selected element again to unselect, `✕` clears everything.
+   Arrows move by 1px (`x8` toggles 8px), `w-`/`w+` resize.
+4. Tap `copy` in the top panel, paste the text back into the chat, tap the
+   badge again to give the page back its clicks.
 
 ## Phase 3 - read the report and fix the source
 
