@@ -1,5 +1,8 @@
 # webview-tuner
 
+![MIT](https://img.shields.io/badge/license-MIT-green) ![zero deps](https://img.shields.io/badge/dependencies-0-green) ![single file](https://img.shields.io/badge/size-~8_KB-green)
+
+
 Layout forensics and live element nudging for webviews you can't inspect - wallet
 in-app browsers (Phantom, Solflare, Jupiter, Backpack), TWAs, release-build
 WKWebView/Chromium views.
@@ -78,19 +81,40 @@ url https://yourapp.xyz/checkout?wvtune=1
 ua ... JupiterBrowser/3.11.0 ...
 ```
 
-## Use as a Claude Code skill
+## Use with your AI coding agent
 
-The repo doubles as a [Claude Code](https://claude.com/claude-code) skill:
-`SKILL.md` teaches the assistant the full loop - wire the script into your
-project, tell you what to do on the device, and turn the pasted report into a
-real CSS fix (formula-level, not magic constants).
+`SKILL.md` in this repo is a plain-markdown skill: it teaches an agent the
+full loop - wire the script into your project, tell the user what to do on the
+device, and turn a pasted report into a real CSS fix (formula-level, not magic
+constants). It works with any agent that can read a file.
+
+**Claude Code** - loads it natively as a skill:
 
 ```bash
 git clone https://github.com/4oko4ow/webview-tuner ~/.claude/skills/webview-tuner
 ```
 
-Then, in any project: say the layout is broken in a wallet browser, or paste a
-tuner report - the skill picks it up from there.
+Then just say "the page looks broken in the wallet browser" or paste a tuner
+report in any project - the skill picks it up.
+
+**Cursor** - add it as a project rule:
+
+```bash
+mkdir -p .cursor/rules && curl -o .cursor/rules/webview-tuner.mdc \
+  https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/SKILL.md
+```
+
+**Codex CLI / agents that read AGENTS.md** - vendor the file and point to it:
+
+```bash
+curl -o docs/webview-tuner-skill.md \
+  https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/SKILL.md
+echo "When debugging webview layouts, follow docs/webview-tuner-skill.md" >> AGENTS.md
+```
+
+**Anything else (ChatGPT, a raw API agent, your own harness)** - paste the
+contents of `SKILL.md` into the system context together with the user's
+report. The report format is stable and documented there.
 
 ## License
 
