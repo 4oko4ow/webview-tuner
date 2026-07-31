@@ -187,7 +187,8 @@
   var inspecting = false
 
   var launcher = document.createElement('button')
-  launcher.textContent = '\u2316'
+  // inline svg crosshair - text glyphs sit off-baseline in random webview fonts
+  launcher.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/></svg>'
   launcher.setAttribute('aria-label', 'webview-tuner')
   launcher.style.cssText = 'position:fixed;bottom:86px;right:10px;z-index:2147483646;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid ' + GREEN + ';background:rgba(0,0,0,.85);color:' + GREEN + ';font:20px/1 ui-monospace,monospace;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center'
   launcher.addEventListener('click', function (e) {
