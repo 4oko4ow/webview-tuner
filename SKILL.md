@@ -33,10 +33,14 @@ Tell them, in one short message:
 1. Open the affected page inside the actual wallet browser / webview with
    `?wvtune=1` appended.
 2. Read nothing - just check the panel appeared (top-left, green mono text).
-3. If an element sits wrong: tap `select`, tap the element (dashed ring
-   appears), nudge it with the arrow buttons until it looks right; `+8w/-8w`
-   resize it. Hardware keyboard arrows also work, Shift = 8px steps.
-4. Tap `copy` and paste the text back into the chat.
+3. If an element sits wrong: LONG-PRESS it (right-click on desktop) - a dashed
+   ring appears and a floating arrow pad shows up next to it. Arrows move it
+   (`x8` toggles 8px steps), `w-`/`w+` resize, `✕` clears the selection.
+   Long-press more elements to select several - arrows move ALL of them
+   together (useful when a whole row of divs needs the same shift). While
+   anything is selected, page taps are swallowed - buttons under your finger
+   will not fire.
+4. Tap `copy` in the top panel and paste the text back into the chat.
 
 ## Phase 3 - read the report and fix the source
 
@@ -50,9 +54,9 @@ vv 746  dvh 746  svh 746  lvh 746  <- how CSS viewport units actually resolve
                                       HERE. dvh != your DevTools emulation.
 safe-b 0  hscroll none             <- safe-area-inset-bottom in px; hscroll
                                       +Npx means horizontal overflow exists
-sel div.stage > button.cta         <- CSS-ish path to the element they picked
-box 384x64 @ 28,562                <- its rendered size and position
-OVERRIDE dx 0 dy -14 dw 16         <- what the user chose: move 14px UP and
+sel[0] div.stage > button.cta      <- CSS-ish path to a picked element (one
+  box 384x64 @ 28,562                 block per selected element)
+  OVERRIDE dx 0 dy -14 dw 16       <- what the user chose: move 14px UP and
                                       16px WIDER than the current CSS produces
 url ...?wvtune=1                   <- exact page
 ua ... JupiterBrowser/3.11.0 ...   <- which webview (report differs per wallet)
