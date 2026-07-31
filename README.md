@@ -159,6 +159,22 @@ echo "When debugging webview layouts, follow docs/webview-tuner-skill.md" >> AGE
 contents of `SKILL.md` into the system context together with the user's
 report. The report format is stable and documented there.
 
+## Updates
+
+The version is the first line of `webview-tuner.js`. Agents following
+`SKILL.md` check it against `main` once per session and, if there is something
+new, tell you what changed and ask before replacing your copy - see
+[CHANGELOG.md](CHANGELOG.md). Nothing auto-updates and nothing phones home: the
+check is a plain `curl` your agent runs, and the script itself never makes a
+network request.
+
+Updating by hand:
+
+```bash
+curl -o path/to/your/webview-tuner.js \
+  https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/webview-tuner.js
+```
+
 ## Before you trust it
 
 As with any skill: read what you install. This one is a single ~8 KB file you

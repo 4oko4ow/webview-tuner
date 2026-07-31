@@ -11,6 +11,29 @@ breaks, then send you a text report instead of screenshots. Your job has three
 phases: wire it up, tell the user what to do on the device, turn their report
 into a real fix.
 
+## Phase 0 - is the project's copy current?
+
+Do this ONCE per session, before anything else, and only when the project
+already has a copy of the tool (skip it on a fresh install - phase 1 fetches
+the newest version anyway):
+
+1. Read the version from the project's copy: the first line of the vendored
+   `webview-tuner.js` is `/*! webview-tuner vX.Y.Z`.
+2. Read the version on `main`:
+   `curl -s https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/webview-tuner.js | head -1`
+3. If they match, say nothing and move on. Version checks that announce
+   themselves when there is no news are noise.
+4. If `main` is newer, fetch
+   `https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/CHANGELOG.md`,
+   and tell the user in ONE short message: their version, the new version, and
+   the 2-4 changes that matter for what they are doing right now. Then ASK
+   before touching anything - never update the file unprompted, and never update
+   mid-task (a tool that changes under the user while they are tuning a layout
+   is worse than an old tool).
+5. If they say yes, overwrite the vendored copy with the fetched file and
+   confirm the new version. Nothing else in their project needs to change - the
+   script is self-contained and the query-param gate is unchanged.
+
 ## Phase 1 - wire the script into the project
 
 1. Copy `webview-tuner.js` from this skill's directory into the project's
