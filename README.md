@@ -16,6 +16,10 @@ Built while shipping [portfi](https://portfi.fun) packs - the buy screen looked
 fine on mobile Chrome and broke in three different wallet webviews, each
 reporting a different `100dvh`.
 
+<p align="center">
+  <img src="docs/inspect-mode.png" width="300" alt="inspect mode: element selected, nudge pad next to it" />
+</p>
+
 ## What it does
 
 Add one script. Open your page inside the actual webview with `?wvtune=1`.
@@ -70,9 +74,23 @@ safe-b 0  hscroll none
 sel[0] div.buyCta > button.primary
   box 384x64 @ 28,562
   OVERRIDE dx 0 dy -14 dw 16
-url https://portfi.fun/packs?wvtune=1
+url https://yourapp.xyz/checkout?wvtune=1
 ua ... JupiterBrowser/3.11.0 ...
 ```
+
+## Use as a Claude Code skill
+
+The repo doubles as a [Claude Code](https://claude.com/claude-code) skill:
+`SKILL.md` teaches the assistant the full loop - wire the script into your
+project, tell you what to do on the device, and turn the pasted report into a
+real CSS fix (formula-level, not magic constants).
+
+```bash
+git clone https://github.com/4oko4ow/webview-tuner ~/.claude/skills/webview-tuner
+```
+
+Then, in any project: say the layout is broken in a wallet browser, or paste a
+tuner report - the skill picks it up from there.
 
 ## License
 

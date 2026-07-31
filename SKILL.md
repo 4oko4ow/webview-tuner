@@ -19,8 +19,8 @@ into a real fix.
    - plain HTML: `<script src="/webview-tuner.js"></script>` before `</body>`
    - Next.js: `<Script src="/webview-tuner.js" strategy="lazyOnload" />` in the
      root layout (or the affected page)
-3. The script renders NOTHING unless the URL has `?wvtune=1` (also accepts
-   `?vhdebug=1`), so it is safe on production. `data-auto` on the script tag
+3. The script renders NOTHING unless the URL has `?wvtune=1`, so it is safe
+   on production. `data-auto` on the script tag
    forces it on for dev builds.
 4. Deploy or serve wherever the user's device can reach it. The whole point is
    running inside the REAL webview - localhost through a tunnel or a preview
