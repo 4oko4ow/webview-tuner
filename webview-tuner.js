@@ -189,7 +189,7 @@
   var launcher = document.createElement('button')
   launcher.textContent = '\u2316'
   launcher.setAttribute('aria-label', 'webview-tuner')
-  launcher.style.cssText = 'position:fixed;bottom:86px;right:10px;z-index:2147483646;width:44px;height:44px;border-radius:50%;border:1px solid ' + GREEN + ';background:rgba(0,0,0,.85);color:' + GREEN + ';font:20px/1 ui-monospace,monospace;cursor:pointer;touch-action:manipulation'
+  launcher.style.cssText = 'position:fixed;bottom:86px;right:10px;z-index:2147483646;width:44px;height:44px;padding:0;border-radius:50%;border:1px solid ' + GREEN + ';background:rgba(0,0,0,.85);color:' + GREEN + ';font:20px/1 ui-monospace,monospace;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center'
   launcher.addEventListener('click', function (e) {
     e.stopPropagation()
     e.preventDefault()
