@@ -1,0 +1,18 @@
+# webview-tuner
+
+> One-file, zero-dependency overlay for pixel-tuning pages inside
+> uninspectable webviews (wallet in-app browsers, TWAs). The user nudges
+> elements on the real device and copies a text report; an AI coding agent
+> turns the report into a source-level CSS fix.
+
+## Docs
+
+- [SKILL.md](https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/SKILL.md): complete agent instructions - how to wire the script into a project, what to tell the user, the report format line by line, and the rules for turning reported pixel offsets into proper CSS (fix formulas, not constants)
+- [README.md](https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/README.md): human-facing overview and per-agent install guides
+- [webview-tuner.js](https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/webview-tuner.js): the script itself - dormant unless the URL contains ?wvtune=1
+
+## Install (for agents)
+
+Copy webview-tuner.js into the project's static assets, load it on the pages
+being debugged, keep SKILL.md available as your instruction source for
+interpreting reports.

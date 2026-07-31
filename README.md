@@ -2,6 +2,24 @@
 
 ![MIT](https://img.shields.io/badge/license-MIT-green) ![zero deps](https://img.shields.io/badge/dependencies-0-green) ![single file](https://img.shields.io/badge/size-~8_KB-green)
 
+## Agent install (fastest path)
+
+Nobody wires debug tooling by hand anymore - paste this to your coding agent
+(Claude Code, Cursor, Codex, whatever you run):
+
+```text
+Set up webview-tuner from https://github.com/4oko4ow/webview-tuner:
+1. Fetch https://raw.githubusercontent.com/4oko4ow/webview-tuner/main/SKILL.md
+   and follow its Phase 1 - copy webview-tuner.js into this project's static
+   assets and load it on the pages we debug (it only activates with ?wvtune=1).
+2. Keep SKILL.md available to yourself (as a skill / rule / doc) so that when
+   I paste a webview-tuner report you turn it into a proper CSS fix.
+```
+
+That's the whole setup. When something looks broken inside a wallet's in-app
+browser, you open the page there with `?wvtune=1`, nudge the layout with your
+finger, hit `copy`, paste the report to your agent - it fixes the source.
+
 
 Layout forensics and live element nudging for webviews you can't inspect - wallet
 in-app browsers (Phantom, Solflare, Jupiter, Backpack), TWAs, release-build
